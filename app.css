@@ -1,0 +1,20 @@
+.bb-latex-inline {
+  display: inline;
+}
+
+.bb-latex-display {
+  display: block;
+  overflow-x: auto;
+  text-align: center;
+  margin: 0.75em 0;
+}
+
+.bb-latex .katex {
+  font-size: 1.05em;
+}
+
+.bb-latex-error {
+  color: var(--destructive);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.9em;
+}

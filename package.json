@@ -1,0 +1,38 @@
+{
+  "name": "bb-better-latex",
+  "version": "0.1.0",
+  "description": "Better inline and display LaTeX for BB chat. Renders $...$ that stock BB leaves literal, without turning $5 or $HOME into math.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZhenHuangLab/bb-better-latex.git"
+  },
+  "homepage": "https://github.com/ZhenHuangLab/bb-better-latex",
+  "bugs": {
+    "url": "https://github.com/ZhenHuangLab/bb-better-latex/issues"
+  },
+  "engines": {
+    "bb": ">=0.38",
+    "bbPluginSdk": ">=0.4.6"
+  },
+  "bb": {
+    "name": "Better LaTeX",
+    "description": "Renders inline $...$ math in chat. BB only ships $$...$$; this plugin adds single-dollar, \\(...\\), and \\[...\\] with currency-safe heuristics, including formulas split across markdown nodes.",
+    "branding": {
+      "icon": "./assets/icon.svg"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "skills": []
+  },
+  "dependencies": {
+    "katex": "^0.16.27"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.4.6",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}
