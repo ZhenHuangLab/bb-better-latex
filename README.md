@@ -26,7 +26,8 @@ Then refresh the BB app. Disable with `bb plugin disable bb-better-latex`.
 | `$x$`, `$E=mc^2$`, `$\mathbf{c}_0$` | inline KaTeX |
 | `$$ ... $$` on its own lines | display math (host already does this) |
 | leftover `$$x$$` in a paragraph | inline, if the host left it as text |
-| `\(...\)` / `\[...\]` | when those backslashes survive into the DOM |
+| `\[...\]` or a lone line `[ \mathbf q = ... ]` | display math. Markdown eats `\[` into `[`, so the plugin recognizes a line-level `[ math ]` when the body looks like TeX |
+| `\(...\)` or leftover `(f(\mathbf r))`, `(R_i)` | inline, only with a TeX command, `^`, or a short subscript. Bare `(i)` / `(optional)` stay text |
 | `$5 to $10`, `$HOME`, `$PATH` | left as text |
 
 It is **not** “formulas at the start of a line fail.” A line such as
@@ -40,7 +41,8 @@ fails in a naïve scanner because markdown splits `{0,x}` / `_{0,z}` into extra 
 ## Limits
 
 - Math inside `` `code` `` or fenced blocks stays literal.
-- `\(` in markdown source is often parsed as an escaped `(`, so prefer `$...$`.
+- Markdown treats `\[` / `\(` as escaped brackets, so the DOM usually has `[...]` / `(...)`. The plugin recovers those when the body looks like TeX.
+- Prefer `$...$` / `$$...$$` when you control the source.
 - Unclosed `$` while a message is still streaming stays literal until the closer arrives.
 
 ## License

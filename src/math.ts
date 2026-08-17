@@ -17,9 +17,16 @@ const CURRENCY_OR_NUMBER =
   /^[\d,.]+(?:\s*(?:k|K|m|M|usd|USD|usdt|USDT))?$/;
 const GREEK = /^[\u0370-\u03FF\u1F00-\u1FFF]+$/;
 const FN_CALL = /^[A-Za-z][A-Za-z0-9]*\([^)]{0,40}\)$/;
+const SHORT_SUBSCRIPT = /^[A-Za-z][A-Za-z0-9]*(_\{[^}]+\}|_[A-Za-z0-9])+$/;
 
 export function mightContainMath(text: string): boolean {
-  return text.includes("$") || text.includes("\\(") || text.includes("\\[");
+  return (
+    text.includes("$") ||
+    text.includes("\\(") ||
+    text.includes("\\[") ||
+    text.includes("[") ||
+    text.includes("(")
+  );
 }
 
 export function isPlausibleInlineMath(body: string): boolean {
@@ -31,6 +38,22 @@ export function isPlausibleInlineMath(body: string): boolean {
   if (/\\[A-Za-z]+/.test(body) || MATH_SIGNAL.test(body)) return true;
   if (GREEK.test(body) || FN_CALL.test(body)) return true;
   return SIMPLE_IDENT.test(body) && body.length <= 8;
+}
+
+export function isPlausibleDisplayMath(body: string): boolean {
+  const trimmed = body.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_BODY) return false;
+  if (/\\[A-Za-z]+/.test(trimmed)) return true;
+  return /[=^]/.test(trimmed) && /[_\\{}+\-*/]/.test(trimmed);
+}
+
+export function isPlausibleParenMath(body: string): boolean {
+  if (!isPlausibleInlineMath(body)) return false;
+  if (SIMPLE_IDENT.test(body)) return false;
+  if (/\\[A-Za-z]+/.test(body)) return true;
+  if (/[\^{}]/.test(body)) return true;
+  if (SHORT_SUBSCRIPT.test(body)) return true;
+  return /[=+\-*/]/.test(body) && /[_^\\]/.test(body);
 }
 
 export function findMath(text: string): MathMatch[] {
@@ -49,8 +72,7 @@ export function findMath(text: string): MathMatch[] {
         if (end !== -1) {
           const body = text.slice(i + 2, end);
           if (body.trim().length > 0 && body.length <= MAX_BODY) {
-            const raw = text.slice(i, end + close.length);
-            matches.push({ start: i, end: end + close.length, body, raw, display });
+            push(matches, text, i, end + close.length, body, display);
             i = end + close.length;
             continue;
           }
@@ -66,14 +88,7 @@ export function findMath(text: string): MathMatch[] {
         if (end !== -1) {
           const body = text.slice(i + 2, end);
           if (body.trim().length > 0 && body.length <= MAX_BODY) {
-            const raw = text.slice(i, end + 2);
-            matches.push({
-              start: i,
-              end: end + 2,
-              body,
-              raw,
-              display: /[\r\n]/.test(body),
-            });
+            push(matches, text, i, end + 2, body, /[\r\n]/.test(body));
             i = end + 2;
             continue;
           }
@@ -86,8 +101,33 @@ export function findMath(text: string): MathMatch[] {
       if (end !== -1) {
         const body = text.slice(i + 1, end);
         if (isPlausibleInlineMath(body)) {
-          const raw = text.slice(i, end + 1);
-          matches.push({ start: i, end: end + 1, body, raw, display: false });
+          push(matches, text, i, end + 1, body, false);
+          i = end + 1;
+          continue;
+        }
+      }
+      i += 1;
+      continue;
+    }
+
+    if (ch === "[" && text[i + 1] !== "^" && isAtLineStart(text, i)) {
+      const end = text.indexOf("]", i + 1);
+      if (end !== -1 && text[end + 1] !== "(") {
+        const body = text.slice(i + 1, end);
+        if (isPlausibleDisplayMath(body)) {
+          push(matches, text, i, end + 1, body.trim(), true);
+          i = end + 1;
+          continue;
+        }
+      }
+    }
+
+    if (ch === "(") {
+      const end = findBalanced(text, "(", ")", i);
+      if (end !== -1) {
+        const body = text.slice(i + 1, end);
+        if (isPlausibleParenMath(body)) {
+          push(matches, text, i, end + 1, body, false);
           i = end + 1;
           continue;
         }
@@ -100,6 +140,29 @@ export function findMath(text: string): MathMatch[] {
   return matches;
 }
 
+function push(
+  matches: MathMatch[],
+  text: string,
+  start: number,
+  end: number,
+  body: string,
+  display: boolean,
+): void {
+  matches.push({
+    start,
+    end,
+    body,
+    raw: text.slice(start, end),
+    display,
+  });
+}
+
+function isAtLineStart(text: string, index: number): boolean {
+  let i = index - 1;
+  while (i >= 0 && (text[i] === " " || text[i] === "\t")) i -= 1;
+  return i < 0 || text[i] === "\n" || text[i] === "\r";
+}
+
 function findSingleDollarEnd(text: string, from: number): number {
   for (let i = from; i < text.length; i += 1) {
     if (text[i] === "\\") {
@@ -107,6 +170,27 @@ function findSingleDollarEnd(text: string, from: number): number {
       continue;
     }
     if (text[i] === "$" && text[i + 1] !== "$") return i;
+  }
+  return -1;
+}
+
+function findBalanced(
+  text: string,
+  open: string,
+  close: string,
+  from: number,
+): number {
+  let depth = 0;
+  for (let i = from; i < text.length; i += 1) {
+    if (text[i] === "\\") {
+      i += 1;
+      continue;
+    }
+    if (text[i] === open) depth += 1;
+    else if (text[i] === close) {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
   }
   return -1;
 }

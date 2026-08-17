@@ -1,7 +1,7 @@
 {
   "name": "bb-better-latex",
-  "version": "0.1.0",
-  "description": "Better inline and display LaTeX for BB chat. Renders $...$ that stock BB leaves literal, without turning $5 or $HOME into math.",
+  "version": "0.2.0",
+  "description": "Better inline and display LaTeX for BB chat. Renders $...$, leftover \\[...\\] / \\(...\\), and currency-safe heuristics.",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -18,7 +18,7 @@
   },
   "bb": {
     "name": "Better LaTeX",
-    "description": "Renders inline $...$ math in chat. BB only ships $$...$$; this plugin adds single-dollar, \\(...\\), and \\[...\\] with currency-safe heuristics, including formulas split across markdown nodes.",
+    "description": "Renders $...$ and leftover \\[...\\] / \\(...\\) math in chat. Stock BB only ships $$...$$; this plugin adds currency-safe heuristics and reassembles formulas markdown splits across nodes.",
     "branding": {
       "icon": "./assets/icon.svg"
     },
