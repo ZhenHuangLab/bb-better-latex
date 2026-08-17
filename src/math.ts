@@ -111,8 +111,8 @@ export function findMath(text: string): MathMatch[] {
     }
 
     if (ch === "[" && text[i + 1] !== "^" && isAtLineStart(text, i)) {
-      const end = text.indexOf("]", i + 1);
-      if (end !== -1 && text[end + 1] !== "(") {
+      const end = findDisplayBracketEnd(text, i);
+      if (end !== -1) {
         const body = text.slice(i + 1, end);
         if (isPlausibleDisplayMath(body)) {
           push(matches, text, i, end + 1, body.trim(), true);
@@ -172,6 +172,32 @@ function findSingleDollarEnd(text: string, from: number): number {
     if (text[i] === "$" && text[i + 1] !== "$") return i;
   }
   return -1;
+}
+
+const TEX_RIGHT_PREFIX = /\\(?:right|[bB]igg?[lr]?)$/;
+
+function findDisplayBracketEnd(text: string, openIndex: number): number {
+  let lastGood = -1;
+  for (let i = openIndex + 1; i < text.length; i += 1) {
+    if (text[i] !== "]") continue;
+    if (text[i + 1] === "(") continue;
+    if (isInternalTexBracket(text, i)) continue;
+    lastGood = i;
+    if (isTrailingCloser(text, i)) return i;
+  }
+  return lastGood;
+}
+
+function isInternalTexBracket(text: string, bracketIndex: number): boolean {
+  const before = text.slice(0, bracketIndex);
+  if (TEX_RIGHT_PREFIX.test(before)) return true;
+  return /\\[A-Za-z]+\s*\[[^\]]*$/.test(before);
+}
+
+function isTrailingCloser(text: string, bracketIndex: number): boolean {
+  let i = bracketIndex + 1;
+  while (i < text.length && /[\s.,;:!?。，、]/.test(text[i] ?? "")) i += 1;
+  return i >= text.length || text[i] === "\n" || text[i] === "\r";
 }
 
 function findBalanced(

@@ -26,7 +26,7 @@ Then refresh the BB app. Disable with `bb plugin disable bb-better-latex`.
 | `$x$`, `$E=mc^2$`, `$\mathbf{c}_0$` | inline KaTeX |
 | `$$ ... $$` on its own lines | display math (host already does this) |
 | leftover `$$x$$` in a paragraph | inline, if the host left it as text |
-| `\[...\]` or a lone line `[ \mathbf q = ... ]` | display math. Markdown eats `\[` into `[`, so the plugin recognizes a line-level `[ math ]` when the body looks like TeX |
+| `\[...\]` or a lone line `[ \mathbf q = ... ]` | display math. Markdown eats `\[` into `[`. Closers inside `\right]` / `\sqrt[n]` are not treated as the end of the formula |
 | `\(...\)` or leftover `(f(\mathbf r))`, `(R_i)` | inline, only with a TeX command, `^`, or a short subscript. Bare `(i)` / `(optional)` stay text |
 | `$5 to $10`, `$HOME`, `$PATH` | left as text |
 
