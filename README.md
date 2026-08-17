@@ -27,7 +27,8 @@ Then refresh the BB app. Disable with `bb plugin disable bb-better-latex`.
 | `$$ ... $$` on its own lines | display math (host already does this) |
 | leftover `$$x$$` in a paragraph | inline, if the host left it as text |
 | `\[...\]` or a lone line `[ \mathbf q = ... ]` | display math. Markdown eats `\[` into `[`. Closers inside `\right]` / `\sqrt[n]` are not treated as the end of the formula |
-| `\(...\)` or leftover `(f(\mathbf r))`, `(R_i)` | inline, only with a TeX command, `^`, or a short subscript. Bare `(i)` / `(optional)` stay text |
+| `\(...\)` or leftover `(L_x,L_y)`, `(T)`, `(T>0)` | inline. Markdown eats `\(` into `(`. `(optional)` / `(user_id)` stay text |
+| a whole paragraph like `T=e^\tau, \qquad \tau=\texttt{log_scale}.` | display math, when it is TeX-only (no Chinese / English prose) |
 | `$5 to $10`, `$HOME`, `$PATH` | left as text |
 
 It is **not** “formulas at the start of a line fail.” A line such as

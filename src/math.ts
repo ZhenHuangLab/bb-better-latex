@@ -25,7 +25,8 @@ export function mightContainMath(text: string): boolean {
     text.includes("\\(") ||
     text.includes("\\[") ||
     text.includes("[") ||
-    text.includes("(")
+    text.includes("(") ||
+    /\\[A-Za-z]+/.test(text)
   );
 }
 
@@ -49,11 +50,50 @@ export function isPlausibleDisplayMath(body: string): boolean {
 
 export function isPlausibleParenMath(body: string): boolean {
   if (!isPlausibleInlineMath(body)) return false;
-  if (SIMPLE_IDENT.test(body)) return false;
+  if (SIMPLE_IDENT.test(body)) return body.length === 1;
   if (/\\[A-Za-z]+/.test(body)) return true;
   if (/[\^{}]/.test(body)) return true;
   if (SHORT_SUBSCRIPT.test(body)) return true;
+  if (isCommaSeparatedMathAtoms(body)) return true;
+  if (/[<>]=?/.test(body) && /[A-Za-z\\]/.test(body)) return true;
   return /[=+\-*/]/.test(body) && /[_^\\]/.test(body);
+}
+
+export function isBareTexParagraph(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 4 || trimmed.length > MAX_BODY) return false;
+  if (/[\u3400-\u9FFF]/.test(trimmed)) return false;
+  if (!/\\[A-Za-z]+/.test(trimmed)) return false;
+  if (!/=/.test(trimmed)) return false;
+  return proseWords(trimmed).length === 0;
+}
+
+export function prepareTex(body: string): string {
+  return body.replace(
+    /\\(text(?:tt|rm|sf|bf|it)?)\{([^}]*)\}/g,
+    (_full, command: string, inner: string) =>
+      `\\${command}{${inner.replace(/_/g, "\\_")}}`,
+  );
+}
+
+function isCommaSeparatedMathAtoms(body: string): boolean {
+  if (!body.includes(",")) return false;
+  const parts = body.split(",");
+  return parts.length >= 2 && parts.every(isMathAtom);
+}
+
+function isMathAtom(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return false;
+  if (/\\[A-Za-z]+/.test(trimmed)) return true;
+  if (SHORT_SUBSCRIPT.test(trimmed)) return true;
+  if (SIMPLE_IDENT.test(trimmed) && trimmed.length <= 2) return true;
+  return /^[A-Za-z][A-Za-z0-9]*(\^\{[^}]+\}|\^[A-Za-z0-9]+)$/.test(trimmed);
+}
+
+function proseWords(text: string): string[] {
+  const stripped = text.replace(/\\[A-Za-z]+/g, " ").replace(/\{[^}]*\}/g, " ");
+  return stripped.match(/[A-Za-z]{3,}/g) ?? [];
 }
 
 export function findMath(text: string): MathMatch[] {
@@ -135,6 +175,15 @@ export function findMath(text: string): MathMatch[] {
     }
 
     i += 1;
+  }
+
+  if (matches.length === 0 && isBareTexParagraph(text)) {
+    const start = text.search(/\S/);
+    if (start >= 0) {
+      let end = text.length;
+      while (end > start && /\s/.test(text[end - 1] ?? "")) end -= 1;
+      push(matches, text, start, end, text.slice(start, end), true);
+    }
   }
 
   return matches;

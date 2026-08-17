@@ -1,6 +1,11 @@
 import katex from "katex";
 import type { PluginContentScriptContext } from "@get-bb/plugin-sdk/app";
-import { findMath, mightContainMath, type MathMatch } from "./math";
+import {
+  findMath,
+  mightContainMath,
+  prepareTex,
+  type MathMatch,
+} from "./math";
 
 const PREVIEW = "[data-markdown-preview]";
 const LATEX_CLASS = "bb-latex";
@@ -243,7 +248,7 @@ function renderMatch(body: string, raw: string, display: boolean): HTMLElement {
     : `${LATEX_CLASS} bb-latex-inline`;
   span.setAttribute("data-bb-latex-source", raw);
   try {
-    katex.render(body, span, {
+    katex.render(prepareTex(body), span, {
       displayMode: display,
       throwOnError: false,
       output: "htmlAndMathml",
