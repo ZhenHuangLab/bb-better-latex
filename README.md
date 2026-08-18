@@ -26,7 +26,7 @@ Then refresh the BB app. Disable with `bb plugin disable bb-better-latex`.
 | `$x$`, `$E=mc^2$`, `$\mathbf{c}_0$` | inline KaTeX |
 | `$$ ... $$` on its own lines | display math (host already does this) |
 | leftover `$$x$$` in a paragraph | inline, if the host left it as text |
-| `\[...\]` or a lone line `[ \mathbf q = ... ]` | display math. Markdown eats `\[` into `[`. Closers inside `\right]` / `\sqrt[n]` are not treated as the end of the formula |
+| `\[...\]` or a lone line `[ \mathbf q = ... ]` | display math. Nested `[` from `\log[...]`, `\left[`, or `[X_i; X_j]` no longer cut the formula short |
 | `\(...\)` or leftover `(L_x,L_y)`, `(T)`, `(T>0)` | inline. Markdown eats `\(` into `(`. `(optional)` / `(user_id)` stay text |
 | a whole paragraph like `T=e^\tau, \qquad \tau=\texttt{log_scale}.` | display math, when it is TeX-only (no Chinese / English prose) |
 | `$5 to $10`, `$HOME`, `$PATH` | left as text |

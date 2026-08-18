@@ -34,10 +34,14 @@ export function isPlausibleInlineMath(body: string): boolean {
   if (body.length === 0 || body.length > MAX_BODY) return false;
   if (body !== body.trim()) return false;
   if (/[\r\n]/.test(body)) return false;
-  if (/^\d/.test(body) || CURRENCY_OR_NUMBER.test(body)) return false;
+  const hasTexCommand = /\\[A-Za-z]+/.test(body);
+  if (!hasTexCommand && (/^\d/.test(body) || CURRENCY_OR_NUMBER.test(body))) {
+    return false;
+  }
   if (ALL_CAPS_IDENT.test(body)) return false;
-  if (/\\[A-Za-z]+/.test(body) || MATH_SIGNAL.test(body)) return true;
+  if (hasTexCommand || MATH_SIGNAL.test(body)) return true;
   if (GREEK.test(body) || FN_CALL.test(body)) return true;
+  if (isCommaSeparatedMathAtoms(body)) return true;
   return SIMPLE_IDENT.test(body) && body.length <= 8;
 }
 
@@ -49,12 +53,14 @@ export function isPlausibleDisplayMath(body: string): boolean {
 }
 
 export function isPlausibleParenMath(body: string): boolean {
+  const unwrapped = unwrapBalancedParens(body);
+  if (unwrapped !== body && isPlausibleParenMath(unwrapped)) return true;
+  if (isCommaSeparatedMathAtoms(body)) return true;
   if (!isPlausibleInlineMath(body)) return false;
   if (SIMPLE_IDENT.test(body)) return body.length === 1;
   if (/\\[A-Za-z]+/.test(body)) return true;
   if (/[\^{}]/.test(body)) return true;
   if (SHORT_SUBSCRIPT.test(body)) return true;
-  if (isCommaSeparatedMathAtoms(body)) return true;
   if (/[<>]=?/.test(body) && /[A-Za-z\\]/.test(body)) return true;
   return /[=+\-*/]/.test(body) && /[_^\\]/.test(body);
 }
@@ -64,16 +70,27 @@ export function isBareTexParagraph(text: string): boolean {
   if (trimmed.length < 4 || trimmed.length > MAX_BODY) return false;
   if (/[\u3400-\u9FFF]/.test(trimmed)) return false;
   if (!/\\[A-Za-z]+/.test(trimmed)) return false;
-  if (!/=/.test(trimmed)) return false;
+  if (!/=/.test(trimmed) && !/\\(?:sim|propto|approx|qquad|displaystyle)/.test(trimmed)) {
+    return false;
+  }
   return proseWords(trimmed).length === 0;
 }
 
 export function prepareTex(body: string): string {
-  return body.replace(
-    /\\(text(?:tt|rm|sf|bf|it)?)\{([^}]*)\}/g,
-    (_full, command: string, inner: string) =>
-      `\\${command}{${inner.replace(/_/g, "\\_")}}`,
-  );
+  return body
+    .replace(
+      /\\(text(?:tt|rm|sf|bf|it)?)\{([^}]*)\}/g,
+      (_full, command: string, inner: string) =>
+        `\\${command}{${inner.replace(/_/g, "\\_")}}`,
+    )
+    .replace(/\\X(?![A-Za-z])/g, "X");
+}
+
+function unwrapBalancedParens(body: string): string {
+  const trimmed = body.trim();
+  if (!trimmed.startsWith("(") || !trimmed.endsWith(")")) return body;
+  if (findBalanced(trimmed, "(", ")", 0) !== trimmed.length - 1) return body;
+  return trimmed.slice(1, -1);
 }
 
 function isCommaSeparatedMathAtoms(body: string): boolean {
@@ -162,7 +179,7 @@ export function findMath(text: string): MathMatch[] {
       }
     }
 
-    if (ch === "(") {
+    if (ch === "(" && !isFunctionCallParen(text, i)) {
       const end = findBalanced(text, "(", ")", i);
       if (end !== -1) {
         const body = text.slice(i + 1, end);
@@ -206,6 +223,11 @@ function push(
   });
 }
 
+function isFunctionCallParen(text: string, index: number): boolean {
+  if (index === 0) return false;
+  return /[A-Za-z0-9}]/.test(text[index - 1] ?? "");
+}
+
 function isAtLineStart(text: string, index: number): boolean {
   let i = index - 1;
   while (i >= 0 && (text[i] === " " || text[i] === "\t")) i -= 1;
@@ -223,24 +245,22 @@ function findSingleDollarEnd(text: string, from: number): number {
   return -1;
 }
 
-const TEX_RIGHT_PREFIX = /\\(?:right|[bB]igg?[lr]?)$/;
-
 function findDisplayBracketEnd(text: string, openIndex: number): number {
-  let lastGood = -1;
-  for (let i = openIndex + 1; i < text.length; i += 1) {
-    if (text[i] !== "]") continue;
-    if (text[i + 1] === "(") continue;
-    if (isInternalTexBracket(text, i)) continue;
-    lastGood = i;
+  let depth = 0;
+  for (let i = openIndex; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === "[") {
+      depth += 1;
+      continue;
+    }
+    if (ch !== "]") continue;
+    depth -= 1;
+    if (depth !== 0) continue;
+    if (text[i + 1] === "(") return -1;
     if (isTrailingCloser(text, i)) return i;
+    return -1;
   }
-  return lastGood;
-}
-
-function isInternalTexBracket(text: string, bracketIndex: number): boolean {
-  const before = text.slice(0, bracketIndex);
-  if (TEX_RIGHT_PREFIX.test(before)) return true;
-  return /\\[A-Za-z]+\s*\[[^\]]*$/.test(before);
+  return -1;
 }
 
 function isTrailingCloser(text: string, bracketIndex: number): boolean {
