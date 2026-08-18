@@ -28,7 +28,7 @@ Then refresh the BB app. Disable with `bb plugin disable bb-better-latex`.
 | leftover `$$x$$` in a paragraph | inline, if the host left it as text |
 | `\[...\]` or a lone line `[ \mathbf q = ... ]` | display math. Nested `[` from `\log[...]`, `\left[`, asymmetric `\right]`, or `[X_i; X_j]` no longer cut the formula short |
 | `\(...\)` or leftover `(L_x,L_y)`, `(T)`, `(T>0)` | inline. Markdown eats `\(` into `(`. `(optional)` / `(user_id)` stay text |
-| a whole paragraph like `T=e^\tau, \qquad \tau=\texttt{log_scale}.` | display math, when it is TeX-only (no Chinese / English prose) |
+| a whole paragraph like `T=e^\tau, \qquad \tau=\texttt{log_scale}.` or `\begin{aligned}...\end{aligned}` | display math, when it is TeX-only (no Chinese / English prose). Markdown-swallowed conjugate stars and aligned row breaks are recovered |
 | `$5 to $10`, `$HOME`, `$PATH` | left as text |
 
 It is **not** “formulas at the start of a line fail.” A line such as
@@ -45,6 +45,7 @@ fails in a naïve scanner because markdown splits `{0,x}` / `_{0,z}` into extra 
 - Markdown treats `\[` / `\(` as escaped brackets, so the DOM usually has `[...]` / `(...)`. The plugin recovers those when the body looks like TeX.
 - Prefer `$...$` / `$$...$$` when you control the source.
 - Unclosed `$` while a message is still streaming stays literal until the closer arrives.
+- If KaTeX still rejects malformed TeX, the plugin leaves the original source visible instead of replacing it with an error block.
 
 ## License
 

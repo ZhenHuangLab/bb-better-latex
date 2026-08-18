@@ -77,13 +77,21 @@ export function isBareTexParagraph(text: string): boolean {
 }
 
 export function prepareTex(body: string): string {
-  return body
+  return restoreAlignedRowSeparators(body)
     .replace(
       /\\(text(?:tt|rm|sf|bf|it)?)\{([^}]*)\}/g,
       (_full, command: string, inner: string) =>
-        `\\${command}{${inner.replace(/_/g, "\\_")}}`,
+        `\\${command}{${inner.replace(/(?<!\\)[_&]/g, "\\$&")}}`,
     )
     .replace(/\\X(?![A-Za-z])/g, "X");
+}
+
+function restoreAlignedRowSeparators(body: string): string {
+  return body.replace(
+    /\\begin\{(aligned|alignedat)\}[\s\S]*?\\end\{\1\}/g,
+    (environment) =>
+      environment.replace(/(?<!\\)\\(?=\s+&)/g, "\\\\"),
+  );
 }
 
 function unwrapBalancedParens(body: string): string {

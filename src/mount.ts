@@ -246,7 +246,8 @@ function isPlausibleCrossBlockMath(
     if (/[A-Za-z]{3,}/.test(fragment)) return false;
     return (
       /[_^{}=+\-*/<>≤≥≠≈]/.test(fragment) ||
-      /^[0-9]*[A-Za-z][A-Za-z0-9]?$/.test(fragment)
+      /^[0-9]*[A-Za-z][A-Za-z0-9]?$/.test(fragment) ||
+      /^[A-Za-z][A-Za-z0-9]*\([^)]{1,40}\)$/.test(fragment)
     );
   }
   return false;
@@ -257,12 +258,35 @@ function containsProtectedContent(element: Element): boolean {
 }
 
 function elementTextWithBreaks(element: Element): string {
-  const clone = element.cloneNode(true) as Element;
-  for (const skipped of clone.querySelectorAll(SKIP_CLOSEST)) skipped.remove();
-  for (const br of clone.querySelectorAll("br")) {
-    br.replaceWith(document.createTextNode("\n"));
-  }
-  return clone.textContent ?? "";
+  let text = "";
+
+  const visit = (node: Node): void => {
+    if (node instanceof Text) {
+      text += node.nodeValue ?? "";
+      return;
+    }
+    if (!(node instanceof Element)) return;
+    if (node.matches(SKIP_CLOSEST)) return;
+    if (node.matches("br")) {
+      text += "\n";
+      return;
+    }
+    const marker = markdownStarMarker(node, text);
+    text += marker;
+    for (const child of node.childNodes) visit(child);
+    text += marker;
+  };
+
+  for (const child of element.childNodes) visit(child);
+  return text;
+}
+
+function markdownStarMarker(element: Element, prefix: string): string {
+  let marker = "";
+  if (element.matches("strong")) marker = "**";
+  else if (element.matches("em")) marker = "*";
+  if (marker.length === 0 || !prefix.endsWith("^")) return "";
+  return (element.textContent ?? "").endsWith("^") ? marker : "";
 }
 
 type BlockRun = {
@@ -324,7 +348,10 @@ function projectBlock(block: Element): BlockRun[] {
       text += "\n";
       return;
     }
+    const marker = markdownStarMarker(node, text);
+    text += marker;
     for (const child of node.childNodes) visit(child);
+    text += marker;
   };
 
   for (const child of block.childNodes) visit(child);
@@ -365,6 +392,12 @@ function applyMatch(nodes: Text[], starts: number[], match: MathMatch): void {
   if (range.collapsed) return;
 
   const span = renderMatch(match.body, match.raw, match.display);
+  if (
+    span.matches(".bb-latex-error") ||
+    span.querySelector(".katex-error")
+  ) {
+    return;
+  }
   range.deleteContents();
   range.insertNode(span);
 }
