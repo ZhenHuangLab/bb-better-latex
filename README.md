@@ -29,6 +29,7 @@ Then refresh the BB app. Disable with `bb plugin disable bb-better-latex`.
 | `\[...\]` or a lone line `[ \mathbf q = ... ]` | display math. Nested `[` from `\log[...]`, `\left[`, asymmetric `\right]`, or `[X_i; X_j]` no longer cut the formula short |
 | `\(...\)` or leftover `(L_x,L_y)`, `(T)`, `(T>0)` | inline. Markdown eats `\(` into `(`. `(optional)` / `(user_id)` stay text |
 | a whole paragraph like `T=e^\tau, \qquad \tau=\texttt{log_scale}.` or `\begin{aligned}...\end{aligned}` | display math, when it is TeX-only (no Chinese / English prose). Markdown-swallowed conjugate stars and aligned row breaks are recovered |
+| matrix-family environments such as `\begin{bmatrix}g_1\\g_2\\g_3\end{bmatrix}` | matrix rows stay vertical when Markdown collapses each `\\` to `\` |
 | `$5 to $10`, `$HOME`, `$PATH` | left as text |
 
 It is **not** “formulas at the start of a line fail.” A line such as

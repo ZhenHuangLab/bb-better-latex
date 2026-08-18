@@ -453,7 +453,7 @@ function renderMatch(body: string, raw: string, display: boolean): HTMLElement {
   try {
     katex.render(prepareTex(body), span, {
       displayMode: display,
-      throwOnError: false,
+      throwOnError: true,
       output: "htmlAndMathml",
       trust: false,
       strict: "ignore",

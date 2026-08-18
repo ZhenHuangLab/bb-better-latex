@@ -77,20 +77,34 @@ export function isBareTexParagraph(text: string): boolean {
 }
 
 export function prepareTex(body: string): string {
-  return restoreAlignedRowSeparators(body)
+  return restoreMarkdownRowSeparators(body)
     .replace(
       /\\(text(?:tt|rm|sf|bf|it)?)\{([^}]*)\}/g,
       (_full, command: string, inner: string) =>
         `\\${command}{${inner.replace(/(?<!\\)[_&]/g, "\\$&")}}`,
     )
-    .replace(/\\X(?![A-Za-z])/g, "X");
+    .replace(/(?<!\\)\\X(?![A-Za-z])/g, "X");
 }
 
-function restoreAlignedRowSeparators(body: string): string {
+function restoreMarkdownRowSeparators(body: string): string {
+  return restoreMatrixRowSeparators(
+    body.replace(
+      /\\begin\{(aligned|alignedat)\}[\s\S]*?\\end\{\1\}/g,
+      (environment) =>
+        environment.replace(/(?<!\\)\\(?=\s+&)/g, "\\\\"),
+    ),
+  );
+}
+
+function restoreMatrixRowSeparators(body: string): string {
   return body.replace(
-    /\\begin\{(aligned|alignedat)\}[\s\S]*?\\end\{\1\}/g,
+    /\\begin\{((?:[pbBvV]?matrix|smallmatrix)\*?)\}[\s\S]*?\\end\{\1\}/g,
     (environment) =>
-      environment.replace(/(?<!\\)\\(?=\s+&)/g, "\\\\"),
+      environment.replace(
+        /([^\\\s])([ \t]*)\\(?=(?:\s|[+\-]?(?:\d|\.\d)|[a-zA-MOQT-Y](?![A-Za-z])))/g,
+        (_match, previous: string, spacing: string) =>
+          `${previous}${spacing}\\\\`,
+      ),
   );
 }
 
