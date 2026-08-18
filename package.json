@@ -1,6 +1,6 @@
 {
   "name": "bb-better-latex",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Better inline and display LaTeX for BB chat. Renders $...$, leftover \\[...\\] / \\(...\\), and currency-safe heuristics.",
   "type": "module",
   "license": "MIT",
@@ -25,6 +25,10 @@
     "server": "./server.ts",
     "app": "./app.tsx",
     "skills": []
+  },
+  "scripts": {
+    "generate:katex-css": "node scripts/generate-katex-shadow-css.mjs",
+    "prepare": "npm run generate:katex-css"
   },
   "dependencies": {
     "katex": "^0.16.27"

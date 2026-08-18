@@ -22,6 +22,14 @@
   font-size: 1.05em;
 }
 
+.katex.bb-latex-selection-enhanced {
+  position: relative;
+}
+
+.katex.bb-latex-selection-enhanced > :not(.bb-latex-selection-proxy) {
+  display: none !important;
+}
+
 .bb-latex-error {
   color: var(--destructive);
   font-family: var(--font-mono, ui-monospace, monospace);

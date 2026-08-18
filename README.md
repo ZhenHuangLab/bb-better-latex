@@ -2,7 +2,7 @@
 
 BB’s chat markdown turns **single-dollar** `$...$` off on purpose (`#511`): `$5 to $10` and `$HOME` were being typeset as math. The stock renderer only accepts `$$...$$`.
 
-This plugin walks rendered chat (`[data-markdown-preview]`) and typesets the delimiters models actually emit.
+This plugin walks rendered chat (`[data-markdown-preview]`) and typesets the delimiters models actually emit. Text selections that include rendered math are serialized back to canonical `\(...\)` / `\[...\]` source, so **Add to chat** and **Reply in side chat** quote LaTeX instead of KaTeX's visual DOM text.
 
 ## Install
 
@@ -31,6 +31,19 @@ Then refresh the BB app. Disable with `bb plugin disable bb-better-latex`.
 | a whole paragraph like `T=e^\tau, \qquad \tau=\texttt{log_scale}.` or `\begin{aligned}...\end{aligned}` | display math, when it is TeX-only (no Chinese / English prose). Markdown-swallowed conjugate stars and aligned row breaks are recovered |
 | matrix-family environments such as `\begin{bmatrix}g_1\\g_2\\g_3\end{bmatrix}` | matrix rows stay vertical when Markdown collapses each `\\` to `\` |
 | `$5 to $10`, `$HOME`, `$PATH` | left as text |
+
+## Quoting rendered math
+
+When a selection includes plugin-rendered or stock BB KaTeX, the quoted text uses canonical delimiters:
+
+```md
+The result is \(m=0\), so
+\[
+|k-k'|=\frac{1}{L}.
+\]
+```
+
+This applies to both **Add to chat** and **Reply in side chat**, because BB snapshots both actions from the same browser selection. Selecting only part of a rendered formula intentionally quotes the whole formula; a partial KaTeX DOM subtree is not valid LaTeX. Pure-text selections are unchanged.
 
 It is **not** “formulas at the start of a line fail.” A line such as
 

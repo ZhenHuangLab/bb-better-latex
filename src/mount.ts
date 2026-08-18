@@ -6,6 +6,7 @@ import {
   prepareTex,
   type MathMatch,
 } from "./math";
+import { createMathSelectionController } from "./selection";
 
 const PREVIEW = "[data-markdown-preview]";
 const LATEX_CLASS = "bb-latex";
@@ -28,6 +29,7 @@ function observeRoot(): Node {
 }
 
 export function mountLatex({ signal }: PluginContentScriptContext) {
+  const selections = createMathSelectionController(document);
   const scheduled = new Set<Element>();
   let raf = 0;
 
@@ -37,18 +39,34 @@ export function mountLatex({ signal }: PluginContentScriptContext) {
         mutation.target instanceof Element
           ? mutation.target
           : mutation.target.parentElement;
-      if (origin) scheduleFrom(origin);
+      if (origin) scheduleClosest(origin);
       for (const node of mutation.addedNodes) {
+        if (node instanceof Element) scheduleFrom(node);
+      }
+      for (const node of mutation.removedNodes) {
         if (node instanceof Element) scheduleFrom(node);
       }
     }
   });
 
+  const requestFlush = () => {
+    if (raf === 0) raf = requestAnimationFrame(flush);
+  };
+
+  const scheduleClosest = (node: Element) => {
+    if (signal.aborted) return;
+    const root = node.matches(PREVIEW) ? node : node.closest(PREVIEW);
+    if (root === null) return;
+    scheduled.add(root);
+    requestFlush();
+  };
+
   const scheduleFrom = (node: Element) => {
     if (signal.aborted) return;
-    for (const root of rootsFrom(node)) scheduled.add(root);
-    if (raf !== 0) return;
-    raf = requestAnimationFrame(flush);
+    const roots = rootsFrom(node);
+    if (roots.length === 0) return;
+    for (const root of roots) scheduled.add(root);
+    requestFlush();
   };
 
   const flush = () => {
@@ -58,21 +76,27 @@ export function mountLatex({ signal }: PluginContentScriptContext) {
     scheduled.clear();
     observer.disconnect();
     try {
+      selections.reconcile();
       for (const root of batch) {
         if (!root.isConnected) continue;
         resetLatex(root);
         processRoot(root);
+        selections.enhance(root);
       }
     } finally {
       if (!signal.aborted) observer.observe(observeRoot(), OBSERVE);
     }
   };
 
+  let disposed = false;
   const dispose = () => {
+    if (disposed) return;
+    disposed = true;
     observer.disconnect();
     if (raf !== 0) cancelAnimationFrame(raf);
     raf = 0;
     scheduled.clear();
+    selections.dispose();
     resetCrossBlockDisplays(document);
     for (const span of document.querySelectorAll(`.${LATEX_CLASS}`)) {
       restoreSpan(span, { force: true });
