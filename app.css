@@ -9,6 +9,15 @@
   margin: 0.75em 0;
 }
 
+.bb-latex-source-hidden {
+  display: none !important;
+}
+
+.bb-latex-overlay {
+  font-size: 1rem;
+  font-weight: 400;
+}
+
 .bb-latex .katex {
   font-size: 1.05em;
 }

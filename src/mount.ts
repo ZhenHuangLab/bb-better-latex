@@ -9,10 +9,14 @@ import {
 
 const PREVIEW = "[data-markdown-preview]";
 const LATEX_CLASS = "bb-latex";
+const OVERLAY_CLASS = "bb-latex-overlay";
+const HIDDEN_SOURCE_CLASS = "bb-latex-source-hidden";
 const SKIP_CLOSEST =
-  "pre, code, kbd, samp, script, style, textarea, .katex, .katex-display, .katex-error, .bb-latex, [contenteditable='true']";
+  `pre, code, kbd, samp, script, style, textarea, .katex, .katex-display, .katex-error, .bb-latex, .${HIDDEN_SOURCE_CLASS}, [contenteditable='true']`;
 const BLOCK_CLOSEST =
   "p, li, td, th, h1, h2, h3, h4, h5, h6, pre, blockquote, [data-markdown-preview]";
+const CROSS_BLOCK = "p, h1, h2, h3, h4, h5, h6";
+const MAX_CROSS_BLOCKS = 8;
 const OBSERVE: MutationObserverInit = {
   childList: true,
   subtree: true,
@@ -69,6 +73,7 @@ export function mountLatex({ signal }: PluginContentScriptContext) {
     if (raf !== 0) cancelAnimationFrame(raf);
     raf = 0;
     scheduled.clear();
+    resetCrossBlockDisplays(document);
     for (const span of document.querySelectorAll(`.${LATEX_CLASS}`)) {
       restoreSpan(span, { force: true });
     }
@@ -92,10 +97,20 @@ function rootsFrom(node: Element): Element[] {
 }
 
 function resetLatex(root: Element): void {
+  resetCrossBlockDisplays(root);
   for (const span of root.querySelectorAll(`.${LATEX_CLASS}`)) {
     restoreSpan(span, { force: false });
   }
   root.normalize();
+}
+
+function resetCrossBlockDisplays(root: ParentNode): void {
+  for (const overlay of root.querySelectorAll(`.${OVERLAY_CLASS}`)) {
+    overlay.remove();
+  }
+  for (const source of root.querySelectorAll(`.${HIDDEN_SOURCE_CLASS}`)) {
+    source.classList.remove(HIDDEN_SOURCE_CLASS);
+  }
 }
 
 function restoreSpan(span: Element, { force }: { force: boolean }): void {
@@ -120,39 +135,201 @@ function sourceAlreadyPresent(span: Element, source: string): boolean {
 }
 
 function processRoot(root: Element): void {
+  processCrossBlockDisplays(root);
   for (const run of collectBlockRuns(root)) {
     processRun(run);
   }
 }
 
-function collectBlockRuns(root: Element): Text[][] {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      if (!(node instanceof Text) || (node.nodeValue ?? "").length === 0) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      if (shouldSkip(node)) return NodeFilter.FILTER_REJECT;
-      return NodeFilter.FILTER_ACCEPT;
-    },
-  });
-
-  const groups = new Map<Element, Text[]>();
-  const order: Element[] = [];
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (!(node instanceof Text)) continue;
-    const block = node.parentElement?.closest(BLOCK_CLOSEST);
-    if (block === null || block === undefined || block.closest("pre") !== null) {
+function processCrossBlockDisplays(root: Element): void {
+  const candidates = [...root.querySelectorAll(CROSS_BLOCK)];
+  for (const first of candidates) {
+    if (!first.isConnected || first.classList.contains(HIDDEN_SOURCE_CLASS)) {
       continue;
     }
-    const run = groups.get(block);
-    if (run === undefined) {
-      groups.set(block, [node]);
-      order.push(block);
-    } else {
-      run.push(node);
+    if (
+      first.closest(PREVIEW) !== root ||
+      first.closest("pre") !== null ||
+      containsProtectedContent(first)
+    ) {
+      continue;
+    }
+
+    const firstText = elementTextWithBreaks(first);
+    if (!/^\s*\[/.test(firstText) || fullBracketDisplay(firstText) !== null) {
+      continue;
+    }
+
+    const blocks = [first];
+    const fragments = [firstText];
+    let combined = firstText;
+    let current = first;
+    for (let count = 1; count < MAX_CROSS_BLOCKS; count += 1) {
+      const next = current.nextElementSibling;
+      if (
+        next === null ||
+        !next.matches(CROSS_BLOCK) ||
+        next.closest(PREVIEW) !== root ||
+        containsProtectedContent(next)
+      ) {
+        break;
+      }
+
+      const nextText = elementTextWithBreaks(next);
+      blocks.push(next);
+      fragments.push(nextText);
+      combined += crossBlockSeparator(current);
+      combined += nextText;
+      const display = fullBracketDisplay(combined);
+      if (display !== null) {
+        if (isPlausibleCrossBlockMath(fragments, display.match.body)) {
+          const overlay = renderMatch(
+            `${display.match.body}${display.suffix}`,
+            combined.trim(),
+            true,
+          );
+          if (
+            !overlay.matches(".bb-latex-error") &&
+            !overlay.querySelector(".katex-error")
+          ) {
+            overlay.classList.add(OVERLAY_CLASS);
+            first.before(overlay);
+            for (const block of blocks) block.classList.add(HIDDEN_SOURCE_CLASS);
+          }
+        }
+        break;
+      }
+      current = next;
     }
   }
-  return order.map((block) => groups.get(block) ?? []);
+}
+
+function crossBlockSeparator(previous: Element): string {
+  if (previous.matches("h1")) return "\n=\n";
+  if (previous.matches("h2")) return "\n-\n";
+  return "\n\n";
+}
+
+type FullBracketDisplay = {
+  match: MathMatch;
+  suffix: string;
+};
+
+function fullBracketDisplay(text: string): FullBracketDisplay | null {
+  const start = text.search(/\S/);
+  if (start < 0 || text[start] !== "[") return null;
+  let end = text.length;
+  while (end > start && /\s/.test(text[end - 1] ?? "")) end -= 1;
+
+  for (const match of findMath(text)) {
+    if (!match.display || match.start !== start) continue;
+    if (!match.raw.startsWith("[") || !match.raw.endsWith("]")) continue;
+    if (match.body !== match.raw.slice(1, -1).trim()) continue;
+    const suffix = text.slice(match.end, end);
+    if (/^[ \t\u00a0.,;:!?。，、]*$/.test(suffix)) {
+      return { match, suffix };
+    }
+  }
+  return null;
+}
+
+function isPlausibleCrossBlockMath(
+  fragments: string[],
+  body: string,
+): boolean {
+  if (body.includes("$")) return false;
+  for (let i = 0; i < fragments.length; i += 1) {
+    const source = fragments[i] ?? "";
+    const fragment = (i === 0 ? source.replace(/^\s*\[/, "") : source).trim();
+    if (fragment.length === 0 || /^[=+\-]$/.test(fragment)) continue;
+    if (/\\[A-Za-z]+/.test(fragment)) return true;
+    if (/[A-Za-z]{3,}/.test(fragment)) return false;
+    return (
+      /[_^{}=+\-*/<>≤≥≠≈]/.test(fragment) ||
+      /^[0-9]*[A-Za-z][A-Za-z0-9]?$/.test(fragment)
+    );
+  }
+  return false;
+}
+
+function containsProtectedContent(element: Element): boolean {
+  return element.querySelector(SKIP_CLOSEST) !== null;
+}
+
+function elementTextWithBreaks(element: Element): string {
+  const clone = element.cloneNode(true) as Element;
+  for (const skipped of clone.querySelectorAll(SKIP_CLOSEST)) skipped.remove();
+  for (const br of clone.querySelectorAll("br")) {
+    br.replaceWith(document.createTextNode("\n"));
+  }
+  return clone.textContent ?? "";
+}
+
+type BlockRun = {
+  nodes: Text[];
+  starts: number[];
+  text: string;
+};
+
+function collectBlockRuns(root: Element): BlockRun[] {
+  const candidates = [
+    ...(root.matches(BLOCK_CLOSEST) ? [root] : []),
+    ...root.querySelectorAll(BLOCK_CLOSEST),
+  ];
+  const runs: BlockRun[] = [];
+  for (const block of candidates) {
+    if (block.closest("pre") !== null || block.matches(SKIP_CLOSEST)) continue;
+    runs.push(...projectBlock(block));
+  }
+  return runs;
+}
+
+function projectBlock(block: Element): BlockRun[] {
+  const runs: BlockRun[] = [];
+  let nodes: Text[] = [];
+  let starts: number[] = [];
+  let text = "";
+
+  const flush = () => {
+    if (nodes.length > 0) runs.push({ nodes, starts, text });
+    nodes = [];
+    starts = [];
+    text = "";
+  };
+
+  const visit = (node: Node): void => {
+    if (node instanceof Text) {
+      if (
+        (node.nodeValue ?? "").length === 0 ||
+        shouldSkip(node) ||
+        node.parentElement?.closest(BLOCK_CLOSEST) !== block
+      ) {
+        flush();
+        return;
+      }
+      starts.push(text.length);
+      nodes.push(node);
+      text += node.nodeValue ?? "";
+      return;
+    }
+    if (!(node instanceof Element)) return;
+    if (
+      node.matches(SKIP_CLOSEST) ||
+      (node.matches(BLOCK_CLOSEST) && node !== block)
+    ) {
+      flush();
+      return;
+    }
+    if (node.matches("br")) {
+      text += "\n";
+      return;
+    }
+    for (const child of node.childNodes) visit(child);
+  };
+
+  for (const child of block.childNodes) visit(child);
+  flush();
+  return runs;
 }
 
 function shouldSkip(node: Text): boolean {
@@ -161,17 +338,10 @@ function shouldSkip(node: Text): boolean {
   return parent.closest(SKIP_CLOSEST) !== null;
 }
 
-function processRun(nodes: Text[]): void {
-  if (nodes.length === 0) return;
-  let concat = "";
-  const starts: number[] = [];
-  for (const node of nodes) {
-    starts.push(concat.length);
-    concat += node.nodeValue ?? "";
-  }
-  if (!mightContainMath(concat)) return;
+function processRun({ nodes, starts, text }: BlockRun): void {
+  if (nodes.length === 0 || !mightContainMath(text)) return;
 
-  const matches = findMath(concat);
+  const matches = findMath(text);
   for (let i = matches.length - 1; i >= 0; i -= 1) {
     const match = matches[i];
     if (match === undefined) continue;

@@ -254,6 +254,7 @@ function findDisplayBracketEnd(text: string, openIndex: number): number {
       continue;
     }
     if (ch !== "]") continue;
+    if (depth === 1 && isTexRightBracket(text, i)) continue;
     depth -= 1;
     if (depth !== 0) continue;
     if (text[i + 1] === "(") return -1;
@@ -263,9 +264,17 @@ function findDisplayBracketEnd(text: string, openIndex: number): number {
   return -1;
 }
 
+function isTexRightBracket(text: string, bracketIndex: number): boolean {
+  return /\\(?:right|big|Big|bigg|Bigg)[lr]?$/u.test(
+    text.slice(0, bracketIndex),
+  );
+}
+
 function isTrailingCloser(text: string, bracketIndex: number): boolean {
   let i = bracketIndex + 1;
-  while (i < text.length && /[\s.,;:!?。，、]/.test(text[i] ?? "")) i += 1;
+  while (i < text.length && /[ \t\u00a0.,;:!?。，、]/.test(text[i] ?? "")) {
+    i += 1;
+  }
   return i >= text.length || text[i] === "\n" || text[i] === "\r";
 }
 
