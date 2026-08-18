@@ -18,6 +18,10 @@ const CURRENCY_OR_NUMBER =
 const GREEK = /^[\u0370-\u03FF\u1F00-\u1FFF]+$/;
 const FN_CALL = /^[A-Za-z][A-Za-z0-9]*\([^)]{0,40}\)$/;
 const SHORT_SUBSCRIPT = /^[A-Za-z][A-Za-z0-9]*(_\{[^}]+\}|_[A-Za-z0-9])+$/;
+const SIMPLE_NUMERIC_EQUATION =
+  /^[A-Za-z\u0370-\u03FF\u1F00-\u1FFF]\s*=\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\.?$/;
+const SIMPLE_RECIPROCAL =
+  /^1\s*\/\s*[A-Za-z\u0370-\u03FF\u1F00-\u1FFF](?:[0-9]+|_[A-Za-z0-9]+)?$/;
 
 export function mightContainMath(text: string): boolean {
   return (
@@ -49,6 +53,7 @@ export function isPlausibleDisplayMath(body: string): boolean {
   const trimmed = body.trim();
   if (trimmed.length === 0 || trimmed.length > MAX_BODY) return false;
   if (/\\[A-Za-z]+/.test(trimmed)) return true;
+  if (SIMPLE_NUMERIC_EQUATION.test(trimmed)) return true;
   return /[=^]/.test(trimmed) && /[_\\{}+\-*/]/.test(trimmed);
 }
 
@@ -56,6 +61,7 @@ export function isPlausibleParenMath(body: string): boolean {
   const unwrapped = unwrapBalancedParens(body);
   if (unwrapped !== body && isPlausibleParenMath(unwrapped)) return true;
   if (isCommaSeparatedMathAtoms(body)) return true;
+  if (SIMPLE_RECIPROCAL.test(body.trim())) return true;
   if (!isPlausibleInlineMath(body)) return false;
   if (SIMPLE_IDENT.test(body)) return body.length === 1;
   if (/\\[A-Za-z]+/.test(body)) return true;

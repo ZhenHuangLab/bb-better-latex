@@ -1,6 +1,6 @@
 {
   "name": "bb-better-latex",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Better inline and display LaTeX for BB chat. Renders $...$, leftover \\[...\\] / \\(...\\), and currency-safe heuristics.",
   "type": "module",
   "license": "MIT",

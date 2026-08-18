@@ -26,8 +26,8 @@ Then refresh the BB app. Disable with `bb plugin disable bb-better-latex`.
 | `$x$`, `$E=mc^2$`, `$\mathbf{c}_0$` | inline KaTeX |
 | `$$ ... $$` on its own lines | display math (host already does this) |
 | leftover `$$x$$` in a paragraph | inline, if the host left it as text |
-| `\[...\]` or a lone line `[ \mathbf q = ... ]` | display math. Nested `[` from `\log[...]`, `\left[`, asymmetric `\right]`, or `[X_i; X_j]` no longer cut the formula short |
-| `\(...\)` or leftover `(L_x,L_y)`, `(T)`, `(T>0)` | inline. Markdown eats `\(` into `(`. `(optional)` / `(user_id)` stay text |
+| `\[...\]` or a lone line `[ \mathbf q = ... ]`, including short equations like `[ m=0. ]` | display math. Nested `[` from `\log[...]`, `\left[`, asymmetric `\right]`, or `[X_i; X_j]` no longer cut the formula short |
+| `\(...\)` or leftover `(L_x,L_y)`, `(T)`, `(T>0)`, `(1/L)` | inline. Markdown eats `\(` into `(`. `(optional)` / `(user_id)` and plain numeric `(1/2)` stay text |
 | a whole paragraph like `T=e^\tau, \qquad \tau=\texttt{log_scale}.` or `\begin{aligned}...\end{aligned}` | display math, when it is TeX-only (no Chinese / English prose). Markdown-swallowed conjugate stars and aligned row breaks are recovered |
 | matrix-family environments such as `\begin{bmatrix}g_1\\g_2\\g_3\end{bmatrix}` | matrix rows stay vertical when Markdown collapses each `\\` to `\` |
 | `$5 to $10`, `$HOME`, `$PATH` | left as text |
