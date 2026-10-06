@@ -9,6 +9,14 @@
   margin: 0.75em 0;
 }
 
+/* Horizontal scroll containers also clip vertical ink overflow. Leave room
+   for tall glyphs and fraction/radical edges, including native BB math whose
+   visual content is moved into the selection proxy's shadow root. */
+.bb-latex-display > .katex-display,
+[data-markdown-preview] .katex-display:has(> .bb-latex-selection-enhanced) {
+  padding-block: 0.5em;
+}
+
 .bb-latex-source-hidden {
   display: none !important;
 }

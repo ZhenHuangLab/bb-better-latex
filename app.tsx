@@ -1,5 +1,6 @@
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import { mountLatex } from "./src/mount";
+import "./src/katex-document.css";
 import "./app.css";
 
 export default definePluginApp((app) => {
